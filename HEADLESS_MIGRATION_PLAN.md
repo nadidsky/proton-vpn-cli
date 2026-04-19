@@ -6,7 +6,8 @@ Enable reliable headless operation for `proton-vpn-cli` while preserving current
 ## Scope
 - In scope: CLI/runtime/auth/tooling changes needed for headless operation.
 - In scope: preserving current Debian/RPM packaging surfaces and existing command flags/flows.
-- Out of scope: replacing the VPN local agent/NetworkManager stack in one step.
+- In scope: evaluating and introducing non-desktop-dependent runtime alternatives compatible with currently supported OSes.
+- In scope: phased migration from desktop-coupled runtime dependencies to cross-OS headless-capable equivalents.
 - Out of scope: full web product implementation (covered as an extension path).
 
 ## Current headless blockers (from current codebase)
@@ -74,11 +75,13 @@ Acceptance:
 Changes:
 - Audit and remove assumptions that require GUI/session services for connector startup.
 - Ensure local-agent and NetworkManager interactions are independent of desktop session bus.
+- Evaluate and stage non-desktop-dependent connector/runtime alternatives that preserve behavior on all currently supported OSes.
 - Improve failure messages when system services are missing (e.g., NM daemon not available).
 
 Acceptance:
 - `connect`, `disconnect`, `status` work in supported headless environments.
 - Error paths clearly distinguish auth issues vs system service issues.
+- At least one cross-OS, non-desktop-dependent runtime path is validated behind a compatibility-safe rollout plan.
 
 ### Phase 5: Packaging and tooling updates (no OS support loss)
 **Goal:** Keep currently supported OS packaging while enabling headless installs.
