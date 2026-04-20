@@ -494,7 +494,7 @@ Required controls:
 - Tool allowlist (no arbitrary command execution).
 - Full audit trail for AI-triggered actions with caller identity/session correlation.
 - Admin-configurable kill switch for MCP endpoint.
-- Structured error contract for MCP responses (stable code/message/details fields) with redaction of sensitive internals.
+- Structured error contract for MCP responses (stable code/message/details fields) with redaction of sensitive internals (e.g., auth tokens, filesystem paths, stack traces, raw backend exception payloads).
 
 ## Suggested delivery order
 1. Phase 1 (safe DBus fallback)
