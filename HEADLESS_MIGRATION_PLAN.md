@@ -428,7 +428,7 @@ class VpnService:
         # map request -> existing controller logic, do not duplicate business rules
         server_name = request.profile
         # Note: current controller signature uses `servername` (legacy naming).
-        # Keep mapping shim until a versioned controller API introduces `server_name`.
+        # Keep mapping shim until the next major controller API version introduces `server_name`.
         return await self._controller.connect(servername=server_name, connection_type=None)
 ```
 
@@ -447,7 +447,7 @@ Backend acceptance criteria:
 - Publish machine-readable OpenAPI spec and run spec-drift checks in CI.
 
 ## Local API exposure security (`127.0.0.10` + `/etc/hosts`)
-If binding a local port (initially `127.0.0.10`) and adding `protonvpn` host alias:
+If binding a local port (proposed default `127.0.0.10`) and adding `protonvpn` host alias:
 - `127.0.0.10` keeps isolation from other localhost services commonly using `127.0.0.1`.
 - Reserve this address in service docs/system checks to prevent local conflicts and keep deterministic routing.
 
@@ -494,7 +494,11 @@ Required controls:
 - Tool allowlist (no arbitrary command execution).
 - Full audit trail for AI-triggered actions with caller identity/session correlation.
 - Admin-configurable kill switch for MCP endpoint.
-- Structured error contract for MCP responses (stable code/message/details fields) with redaction of sensitive internals (e.g., auth tokens, filesystem paths, stack traces, raw backend exception payloads).
+- Structured error contract for MCP responses (stable code/message/details fields) with redaction of sensitive internals:
+  - auth tokens/session artifacts (credential leakage risk)
+  - filesystem paths (host information disclosure)
+  - stack traces (internal implementation disclosure)
+  - raw backend exception payloads (untrusted/internal detail leakage)
 
 ## Suggested delivery order
 1. Phase 1 (safe DBus fallback)
