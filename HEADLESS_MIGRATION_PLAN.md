@@ -212,6 +212,10 @@ class SecretEnvelope(BaseModel):
     )
 ```
 
+Clarifications:
+- `file+age` denotes one backend strategy (filesystem storage encrypted with age), not two independent backend selectors.
+- For `tpm2`, store sealed blobs/metadata in `secret_dir` as well; validate `secret_dir` when blob persistence is enabled.
+
 Implementation notes:
 - Keep `keyring` as default on desktop.
 - Add headless-compatible backends (for example TPM-backed wrapping, `pass`, or encrypted file store with strict permissions).
@@ -245,6 +249,7 @@ def select_backend(mode, os_caps) -> ConnectorBackend:
 Native OS tool examples for headless mode:
 - WireGuard path: `wg`, `ip`, `resolvectl` (or distro resolver equivalent), `nft`/`iptables`.
 - OpenVPN path: `openvpn` + systemd service orchestration.
+- Resolver fallback (non-systemd): write managed `resolv.conf` via `openresolv`/`resolvconf` integration where `resolvectl` is unavailable.
 
 Compatibility effect:
 - Existing NetworkManager path remains default where already supported.
