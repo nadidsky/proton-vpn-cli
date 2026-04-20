@@ -184,6 +184,8 @@ def select_otp_provider(otp_env):
     return lambda: getpass.getpass("2FA Token: ")
 ```
 
+Security note: this is a migration sketch. Production implementation should use hardened secret input handling, avoid logging/echoing sensitive values, and document automation risks for stdin/env-based credentials.
+
 Compatibility effect:
 - Existing `protonvpn signin <username>` remains unchanged.
 - Automation gains non-interactive inputs without changing controller contract.
