@@ -220,7 +220,8 @@ class SecretEnvelope(BaseModel):
 ```
 
 Clarifications:
-- `file+age` denotes one backend strategy (filesystem storage encrypted with age, the age encryption tool), not two independent backend selectors.
+- `file+age` denotes one backend strategy (filesystem storage encrypted with age: https://github.com/FiloSottile/age), not two independent backend selectors.
+- `pass` refers to the standard Unix password manager (`pass`) as the secret material storage backend.
 - For `tpm2`, store sealed blobs/metadata in `secret_dir` as well; validate `secret_dir` when blob persistence is enabled.
 - `tpm2_key_handle` should be documented as a stable TPM2 object identifier (for example persistent handle format used by local tooling).
 - `memory` backend should be restricted to ephemeral sessions (for example CI smoke tests), with explicit warning that secrets are lost on restart and must never be persisted.
