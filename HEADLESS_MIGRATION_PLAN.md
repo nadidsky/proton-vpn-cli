@@ -302,6 +302,77 @@ To keep existing supported OSes while moving away from headful-only assumptions:
 - **Risk:** packaging drift across distributions.  
   **Mitigation:** keep Debian/RPM parity checks and mode-specific install tests.
 
+## Security officer review gates (secure + future-proof)
+Before rollout, security sign-off should require the following controls:
+
+1. **Secret lifecycle controls**
+   - No plaintext credential persistence in logs, config, process args, or crash dumps.
+   - In-memory secret lifetime minimized (zeroize buffers where practical).
+   - File-backed secrets require strict permissions (owner-only) and at-rest encryption.
+
+2. **Auth path hardening**
+   - Non-interactive auth sources (`stdin`, env, token flows) must be mutually exclusive or explicitly prioritized.
+   - Mandatory redaction policy for all sensitive CLI output and telemetry.
+   - Brute-force/rate-limit handling aligned with upstream API policy.
+
+3. **Backend trust model**
+   - Backend-specific threat model documented (`keyring`, `pass`, `file+age`, `tpm2`, `memory`).
+   - `memory` backend explicitly non-persistent and disabled by default outside controlled environments.
+   - `tpm2` path includes key rotation and recovery procedure documentation.
+
+4. **Supply-chain and crypto agility**
+   - Pin and monitor security advisories for crypto/key-management dependencies.
+   - Keep backend interface versioned so storage/crypto implementation can evolve without CLI breaking changes.
+   - Require migration tooling for future cryptographic algorithm upgrades.
+
+5. **Operational safety**
+   - Safe failure defaults (failed secret backend init must not silently downgrade to insecure storage).
+   - Resolver/service reconfiguration must be transactional with rollback on failure.
+   - Security incident runbook documented for credential leak, backend corruption, and auth abuse scenarios.
+
+Security acceptance criteria:
+- Security review checklist completed and approved for each backend/mode.
+- Negative security tests pass (secret leakage, unsafe fallback, privilege boundary checks).
+- No critical/high unresolved security findings at release gate.
+
+## TDS expert review: required test definition and pass criteria
+The TDS review should produce/own this minimum test matrix for the headless migration:
+
+1. **Compatibility tests**
+   - Existing desktop flows unchanged (`signin`, `connect`, `status`, `disconnect`, `signout`).
+   - Help/usage text and existing flags remain backward compatible.
+   - Packaging install/upgrade parity on supported Debian/RPM targets.
+
+2. **Headless runtime tests**
+   - No `DBUS_SESSION_BUS_ADDRESS` scenario: CLI starts and headless commands execute.
+   - Missing GUI/session services do not block non-GUI operations.
+   - Connector selection behaves deterministically by mode/capability.
+
+3. **Auth and secret-storage tests**
+   - Interactive signin and each non-interactive auth mode pass independently.
+   - Invalid/ambiguous auth input combinations fail with safe, clear errors.
+   - Backend matrix tests (`keyring`, `pass`, `file+age`, `tpm2`, `memory`) validate persistence/security expectations.
+
+4. **Network/runtime backend tests**
+   - NetworkManager path regression tests.
+   - Native tool path tests (WireGuard/OpenVPN) including resolver ownership conflicts.
+   - Service-manager variation tests (systemd + non-systemd supervisor path).
+
+5. **Security and resilience tests**
+   - Secret redaction tests for stdout/stderr/logging.
+   - Failure-injection tests for backend init, resolver apply, and partial connect/disconnect.
+   - Rollback integrity tests (no orphaned routes/firewall/DNS state after failure).
+
+6. **CI gating policy**
+   - Define required vs optional jobs per phase (PR vs nightly).
+   - Block merge on: compatibility regressions, security test failures, or unresolved flaky-critical tests.
+   - Require trend monitoring for reliability (pass rate, flake rate, mean recovery time).
+
+TDS acceptance criteria:
+- Test specification reviewed and approved by TDS owner.
+- Automated coverage exists for all critical paths above.
+- Release candidate must pass the agreed required-gate suite across supported OS/package variants.
+
 ## Suggested delivery order
 1. Phase 1 (safe DBus fallback)
 2. Phase 2 (non-interactive signin)
