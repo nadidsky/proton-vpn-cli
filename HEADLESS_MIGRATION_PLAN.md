@@ -172,16 +172,16 @@ from typing import Literal
 from pathlib import Path
 
 class SecretBackendConfig(BaseModel):
-    backend: Literal["keyring", "pass", "file+age", "tpm2", "memory"]
+    backend: Literal["keyring", "pass", "file+age", "TPM2", "memory"]
     secret_dir: Path | None = None
-    tpm_key_handle: str | None = None
+    tpm2_key_handle: str | None = None
 
     @model_validator(mode="after")
     def validate_backend_requirements(self):
         if self.backend in {"pass", "file+age"} and self.secret_dir is None:
             raise ValueError("secret_dir is required for file-backed secret stores")
-        if self.backend == "tpm2" and self.tpm_key_handle is None:
-            raise ValueError("tpm_key_handle is required for TPM-backed store")
+        if self.backend == "TPM2" and self.tpm2_key_handle is None:
+            raise ValueError("tpm2_key_handle is required for TPM2-backed store")
         return self
 
 class SecretEnvelope(BaseModel):
