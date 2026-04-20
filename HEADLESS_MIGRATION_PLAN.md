@@ -373,7 +373,7 @@ TDS acceptance criteria:
 - Automated coverage exists for all critical paths above.
 - Release candidate must pass the agreed required-gate suite across supported OS/package variants.
 
-## Web UI + API extension assurance gates (frontend + backend)
+## Web UI and API extension assurance gates (frontend + backend)
 For the requested web control-plane extension, add two dedicated ownership gates with concrete implementation examples.
 
 ### Frontend developer assurance (consistency + UX)
@@ -389,9 +389,12 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 class ConnectRequest(BaseModel):
-    profile: str = Field(min_length=1)
+    profile: str = Field(min_length=1, description="CLI-equivalent profile or server selector")
     protocol: Literal["wireguard", "openvpn"] = "wireguard"
-    netshield: Literal["off", "malware", "ads_malware"] = "off"
+    netshield: Literal["off", "malware", "ads_malware"] = Field(
+        default="off",
+        description="NetShield mode: off, malware-only, or ads+malware",
+    )
 ```
 
 ```ts
@@ -420,7 +423,8 @@ class VpnService:
     async def connect(self, request):
         settings = self._controller.get_connection_settings()
         # map request -> existing controller logic, do not duplicate business rules
-        return await self._controller.connect(servername=request.profile, connection_type=None)
+        server_name = request.profile
+        return await self._controller.connect(servername=server_name, connection_type=None)
 ```
 
 Backend acceptance criteria:
