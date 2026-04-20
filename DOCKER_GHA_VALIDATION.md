@@ -83,7 +83,40 @@ jobs:
         run: python -m pytest
 ```
 
-## 5) Notes
+## 5) Integrate `python-proton-core` from source
+
+If you want to validate against source instead of package-index `proton-core`, use the Proton core repo directly:
+
+```bash
+git clone https://github.com/ProtonVPN/python-proton-core.git /tmp/python-proton-core
+```
+
+Then install it first in the container run:
+
+```bash
+docker run --rm \
+  -v "$(pwd)":/workspace \
+  -v /tmp/python-proton-core:/deps/python-proton-core \
+  -w /workspace \
+  proton-vpn-cli-ci:local \
+  bash -lc "pip install -e /deps/python-proton-core && pip install -r requirements.txt && python -m flake8 proton tests && python -m pytest"
+```
+
+For GitHub Actions, add a second checkout and editable install before `requirements.txt`:
+
+```yaml
+      - uses: actions/checkout@v4
+        with:
+          repository: ProtonVPN/python-proton-core
+          path: deps/python-proton-core
+
+      - name: Install source proton-core + project dependencies
+        run: |
+          pip install -e deps/python-proton-core
+          pip install -r requirements.txt
+```
+
+## 6) Notes
 
 - End-to-end test execution requires private Proton packages (`proton-core`, `proton-vpn-api-core`, `proton-keyring-linux`, `proton-vpn-local-agent`, and dev extras).
 - Keep credentials in GitHub Secrets only.
