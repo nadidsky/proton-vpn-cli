@@ -172,7 +172,7 @@ from typing import Literal
 from pathlib import Path
 
 class SecretBackendConfig(BaseModel):
-    backend: Literal["keyring", "pass", "file+age", "TPM2", "memory"]
+    backend: Literal["keyring", "pass", "file+age", "tpm2", "memory"]
     secret_dir: Path | None = None
     tpm2_key_handle: str | None = None
 
@@ -180,14 +180,16 @@ class SecretBackendConfig(BaseModel):
     def validate_backend_requirements(self):
         if self.backend in {"pass", "file+age"} and self.secret_dir is None:
             raise ValueError("secret_dir is required for file-backed secret stores")
-        if self.backend == "TPM2" and self.tpm2_key_handle is None:
-            raise ValueError("tpm2_key_handle is required for TPM2-backed store")
+        if self.backend == "tpm2" and self.tpm2_key_handle is None:
+            raise ValueError("tpm2_key_handle is required for tpm2-backed store")
         return self
 
 class SecretEnvelope(BaseModel):
     account: str
     ciphertext_b64: str
-    wrapped_key_ref: str = Field(description="keyring id, TPM handle, or age key id")
+    wrapped_key_ref: str = Field(
+        description="backend reference: keyring item id, pass entry, age key id, tpm2 handle, or memory session id"
+    )
 ```
 
 Implementation notes:
