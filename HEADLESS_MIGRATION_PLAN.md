@@ -127,11 +127,12 @@ Migration example:
 ```python
 from dbus_fast.aio import MessageBus
 from dbus_fast import BusType
+from dbus_fast.errors import DBusError
 
 async def _vpn_gui_running() -> bool:
     try:
         bus = await MessageBus(bus_type=BusType.SESSION).connect()
-    except Exception:  # session bus not available in headless mode
+    except (DBusError, OSError):  # session bus not available in headless mode
         return False
 
     reply = await bus.call(...)
@@ -166,10 +167,16 @@ async def signin(ctx, username, password_stdin, password_env, otp_env):
 
 def select_password_provider(password_stdin, password_env):
     if password_stdin:
-        return lambda: sys.stdin.readline().rstrip("\n")
+        return lambda: _read_stdin_password()
     if password_env:
         return lambda: os.environ[password_env]
     return getpass.getpass
+
+def _read_stdin_password():
+    value = sys.stdin.readline().rstrip("\n")
+    if not value:
+        raise click.ClickException("No password received on stdin")
+    return value
 
 def select_otp_provider(otp_env):
     if otp_env:
@@ -201,7 +208,7 @@ class SecretBackendConfig(BaseModel):
         if self.backend in {"pass", "file+age"} and self.secret_dir is None:
             raise ValueError("secret_dir is required for file-backed secret stores")
         if self.backend == "tpm2" and self.tpm2_key_handle is None:
-            raise ValueError("tpm2_key_handle is required for tpm2-backed store")
+            raise ValueError("tpm2_key_handle is required for TPM2-backed store")
         return self
 
 class SecretEnvelope(BaseModel):
@@ -215,6 +222,7 @@ class SecretEnvelope(BaseModel):
 Clarifications:
 - `file+age` denotes one backend strategy (filesystem storage encrypted with age), not two independent backend selectors.
 - For `tpm2`, store sealed blobs/metadata in `secret_dir` as well; validate `secret_dir` when blob persistence is enabled.
+- `tpm2_key_handle` should be documented as a stable TPM2 object identifier (for example persistent handle format used by local tooling).
 
 Implementation notes:
 - Keep `keyring` as default on desktop.
@@ -248,7 +256,7 @@ def select_backend(mode, os_caps) -> ConnectorBackend:
 
 Native OS tool examples for headless mode:
 - WireGuard path: `wg`, `ip`, `resolvectl` (or distro resolver equivalent), `nft`/`iptables`.
-- OpenVPN path: `openvpn` + systemd service orchestration.
+- OpenVPN path: `openvpn` + service orchestration (systemd where available; OpenRC/runit/supervisord alternatives otherwise).
 - Resolver fallback (non-systemd): write managed `resolv.conf` via `openresolv`/`resolvconf` integration where `resolvectl` is unavailable.
 
 Compatibility effect:
