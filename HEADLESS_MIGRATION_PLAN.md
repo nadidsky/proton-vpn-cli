@@ -220,9 +220,10 @@ class SecretEnvelope(BaseModel):
 ```
 
 Clarifications:
-- `file+age` denotes one backend strategy (filesystem storage encrypted with age), not two independent backend selectors.
+- `file+age` denotes one backend strategy (filesystem storage encrypted with age, the age encryption tool), not two independent backend selectors.
 - For `tpm2`, store sealed blobs/metadata in `secret_dir` as well; validate `secret_dir` when blob persistence is enabled.
 - `tpm2_key_handle` should be documented as a stable TPM2 object identifier (for example persistent handle format used by local tooling).
+- `memory` backend should be restricted to ephemeral sessions (for example CI smoke tests), with explicit warning that secrets are lost on restart and must never be persisted.
 
 Implementation notes:
 - Keep `keyring` as default on desktop.
@@ -258,6 +259,7 @@ Native OS tool examples for headless mode:
 - WireGuard path: `wg`, `ip`, `resolvectl` (or distro resolver equivalent), `nft`/`iptables`.
 - OpenVPN path: `openvpn` + service orchestration (systemd where available; OpenRC/runit/supervisord alternatives otherwise).
 - Resolver fallback (non-systemd): write managed `resolv.conf` via `openresolv`/`resolvconf` integration where `resolvectl` is unavailable.
+- Resolver ownership must be coordinated with active network managers (`dhclient`, NetworkManager, or equivalent) to avoid DNS race conditions.
 
 Compatibility effect:
 - Existing NetworkManager path remains default where already supported.
