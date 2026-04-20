@@ -389,7 +389,10 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 class ConnectRequest(BaseModel):
-    profile: str = Field(min_length=1, description="CLI-equivalent profile or server selector")
+    profile: str = Field(
+        min_length=1,
+        description="Target selector accepted by CLI semantics (for example profile name, country code, or explicit server name)",
+    )
     protocol: Literal["wireguard", "openvpn"] = "wireguard"
     netshield: Literal["off", "malware", "ads_malware"] = Field(
         default="off",
@@ -424,6 +427,7 @@ class VpnService:
         settings = self._controller.get_connection_settings()
         # map request -> existing controller logic, do not duplicate business rules
         server_name = request.profile
+        # Note: current controller signature uses `servername` (legacy naming).
         return await self._controller.connect(servername=server_name, connection_type=None)
 ```
 
