@@ -373,6 +373,117 @@ TDS acceptance criteria:
 - Automated coverage exists for all critical paths above.
 - Release candidate must pass the agreed required-gate suite across supported OS/package variants.
 
+## Web UI + API extension assurance gates (frontend + backend)
+For the requested web control-plane extension, add two dedicated ownership gates with concrete implementation examples.
+
+### Frontend developer assurance (consistency + UX)
+Required outcomes:
+- One source of truth for command/field semantics so web forms match CLI behavior and validation.
+- Stable UX patterns for connect/disconnect/status/auth flows across desktop and headless contexts.
+- Accessibility, localization, and error-message parity with CLI guidance.
+
+Code-grounded example (generate UI-safe schemas from CLI-facing models):
+```python
+# shared/contracts.py
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class ConnectRequest(BaseModel):
+    profile: str = Field(min_length=1)
+    protocol: Literal["wireguard", "openvpn"] = "wireguard"
+    netshield: Literal["off", "malware", "ads_malware"] = "off"
+```
+
+```ts
+// web/ui consumes generated JSON schema for form validation + labels
+// (schema generation done in build step from shared/contracts.py)
+```
+
+Frontend acceptance criteria:
+- UX spec approved by frontend owner for all core flows.
+- Web validation rules remain synchronized with backend contract versions.
+- Usability/a11y regressions block release.
+
+### Backend developer assurance (CLI parity + maintainable API evolution)
+Required outcomes:
+- API operations map to existing controller seams so web functionality stays complete vs CLI.
+- API versioning/deprecation rules prevent breaking clients unexpectedly.
+- Contract tests guarantee parity between API calls and CLI command outcomes.
+
+Code-grounded example (service layer calling existing controller paths):
+```python
+# proton/vpn/cli/web/service.py
+class VpnService:
+    def __init__(self, controller):
+        self._controller = controller
+
+    async def connect(self, request):
+        settings = self._controller.get_connection_settings()
+        # map request -> existing controller logic, do not duplicate business rules
+        return await self._controller.connect(servername=request.profile, connection_type=None)
+```
+
+Backend acceptance criteria:
+- Endpoint-to-controller mapping documented for each core capability.
+- Deprecation policy enforced (`/v1` preserved while `/v2` rolls out).
+- Contract + parity tests pass for all CLI-equivalent actions.
+
+## Full REST compatibility and evolution policy
+- Provide complete REST coverage for CLI-complete operations: auth/session, connect/disconnect/reconnect, status, settings, server selection, and signout.
+- Use explicit API versioning (`/api/v1/...`) and additive-change-first policy.
+- Breaking changes require:
+  1) new version namespace,
+  2) compatibility shim window,
+  3) migration notes and automated compatibility tests.
+- Publish machine-readable OpenAPI spec and run spec-drift checks in CI.
+
+## Local API exposure security (`127.0.0.10` + `/etc/hosts`)
+If binding a local port (initially `127.0.0.10`) and adding `protonvpn` host alias:
+
+1. **Bind and trust boundary**
+   - Bind only to loopback, never wildcard interfaces.
+   - Enforce Host-header allowlist (`protonvpn`, `127.0.0.10`, `localhost` as explicitly configured).
+   - Disable proxy trust by default to prevent header spoofing.
+
+2. **Authentication and authorization**
+   - Require local auth token (or mTLS over loopback) for all mutating endpoints.
+   - Use least-privilege scopes (read status vs modify connection state).
+   - CSRF protections required for browser-based session auth.
+
+3. **`/etc/hosts` integrity**
+   - Write only exact managed line (`127.0.0.10 protonvpn`) with idempotent updater.
+   - Require elevated privileges with explicit user confirmation.
+   - Keep backup + rollback; never remove unrelated host entries.
+
+4. **Operational controls**
+   - Audit log all state-changing API calls.
+   - Rate-limit sensitive endpoints.
+   - Default deny on auth failure and lock down debug endpoints in production mode.
+
+Security acceptance criteria:
+- No unauthenticated state-changing endpoint is exposed on the local API.
+- Host alias updates are idempotent, reversible, and integrity-checked.
+- Pen-test/local-threat-model review passes before default enablement.
+
+## MCP endpoint for local AI integration (optional, gated)
+Add an optional MCP endpoint only after REST security gates are green.
+
+Code-grounded example (tool layer delegates to same service/API contract):
+```python
+class McpTools:
+    async def vpn_status(self):
+        return await self._service.status()
+
+    async def vpn_connect(self, profile: str):
+        return await self._service.connect(profile=profile)
+```
+
+Required controls:
+- Reuse same authz scopes as REST API (no privileged bypass path).
+- Tool allowlist (no arbitrary command execution).
+- Full audit trail for AI-triggered actions with caller identity/session correlation.
+- Admin-configurable kill switch for MCP endpoint.
+
 ## Suggested delivery order
 1. Phase 1 (safe DBus fallback)
 2. Phase 2 (non-interactive signin)
