@@ -114,6 +114,133 @@ Acceptance:
 - No regressions in current unit tests.
 - New headless scenarios are covered by automated tests.
 
+## Code-grounded migration examples (one level deeper)
+
+This section maps proposed changes directly to current code surfaces so the migration work is implementation-ready.
+
+### 1) Session DBus guard fallback (`proton/vpn/cli/__init__.py`)
+Current anchor:
+- `_vpn_gui_running()` currently assumes session bus access (`MessageBus(...SESSION).connect()`).
+- `app()` enforces GUI/CLI exclusivity by calling `_vpn_gui_running()`.
+
+Migration example:
+```python
+async def _vpn_gui_running() -> bool:
+    try:
+        bus = await MessageBus(bus_type=BusType.SESSION).connect()
+    except Exception:  # session bus not available in headless mode
+        return False
+
+    reply = await bus.call(...)
+    if reply.message_type == MessageType.ERROR:
+        return False
+    return GTK_APP_ID in reply.body[0]
+```
+
+Compatibility effect:
+- Desktop behavior stays the same when session DBus exists.
+- Headless/server usage no longer fails before command execution.
+
+### 2) Non-interactive signin path (`proton/vpn/cli/commands/account.py`, `core/controller.py`)
+Current anchor:
+- `signin()` uses `getpass.getpass` and interactive 2FA prompt.
+- `Controller.login()` already accepts callables (`get_password`, `get_2fa`), which is a good seam.
+
+Migration example:
+```python
+@click.option("--password-stdin", is_flag=True)
+@click.option("--password-env", type=str)
+@click.option("--otp-env", type=str)
+async def signin(ctx, username, password_stdin, password_env, otp_env):
+    get_password = select_password_provider(password_stdin, password_env)
+    get_2fa = select_otp_provider(otp_env)  # falls back to interactive prompt
+    await controller.login(username, get_password, get_2fa)
+```
+
+Compatibility effect:
+- Existing `protonvpn signin <username>` remains unchanged.
+- Automation gains non-interactive inputs without changing controller contract.
+
+### 3) Credential storage with validated schema (keyring + headless secure backends)
+Current anchor:
+- Packaging currently hard-depends on `proton-keyring-linux` (`setup.py`, `debian/control`, `rpmbuild/SPECS/package.spec.template`).
+
+Migration example (Pydantic-backed backend config and secret envelope):
+```python
+from pydantic import BaseModel, Field, model_validator
+from typing import Literal
+from pathlib import Path
+
+class SecretBackendConfig(BaseModel):
+    backend: Literal["keyring", "pass", "file+age", "tpm2", "memory"]
+    secret_dir: Path | None = None
+    tpm_key_handle: str | None = None
+
+    @model_validator(mode="after")
+    def validate_backend_requirements(self):
+        if self.backend in {"pass", "file+age"} and self.secret_dir is None:
+            raise ValueError("secret_dir is required for file-backed secret stores")
+        if self.backend == "tpm2" and self.tpm_key_handle is None:
+            raise ValueError("tpm_key_handle is required for TPM-backed store")
+        return self
+
+class SecretEnvelope(BaseModel):
+    account: str
+    ciphertext_b64: str
+    wrapped_key_ref: str = Field(description="keyring id, TPM handle, or age key id")
+```
+
+Implementation notes:
+- Keep `keyring` as default on desktop.
+- Add headless-compatible backends (for example TPM-backed wrapping, `pass`, or encrypted file store with strict permissions).
+- Keep clear migration/rollback path via config/env backend selector.
+
+### 4) NetworkManager-to-native runtime alternatives (`core/controller.py` connector seam)
+Current anchor:
+- `Controller.get_vpn_connector()` delegates to `self._api.get_vpn_connector()`.
+- `connect()`/`disconnect()` already use connector abstraction and state events.
+
+Migration example:
+```python
+class ConnectorBackend(Protocol):
+    async def connect(self, server): ...
+    async def disconnect(self): ...
+    @property
+    def current_state(self): ...
+
+class NetworkManagerBackend(ConnectorBackend): ...
+class WireGuardNativeBackend(ConnectorBackend): ...  # uses wg/ip/resolvectl
+class OpenVPNServiceBackend(ConnectorBackend): ...   # uses openvpn/systemd unit
+
+def select_backend(mode, os_caps) -> ConnectorBackend:
+    if mode == "desktop":
+        return NetworkManagerBackend()
+    if os_caps.has_wg_tools:
+        return WireGuardNativeBackend()
+    return OpenVPNServiceBackend()
+```
+
+Native OS tool examples for headless mode:
+- WireGuard path: `wg`, `ip`, `resolvectl` (or distro resolver equivalent), `nft`/`iptables`.
+- OpenVPN path: `openvpn` + systemd service orchestration.
+
+Compatibility effect:
+- Existing NetworkManager path remains default where already supported.
+- Non-desktop path is additive and selected by mode/capability detection.
+
+### 5) Packaging evolution without OS support loss
+Current anchor:
+- Dependency declarations in `setup.py`, Debian control, and RPM spec currently assume keyring dependency in all installs.
+
+Migration example:
+- Keep current package outputs.
+- Add mode-aware optional dependencies where safe (desktop extras vs headless extras).
+- Add install-time/runtime checks that fail with actionable messages if required native tools are missing.
+
+Acceptance additions for this section:
+- Every migration item references a concrete current file/function.
+- Each new backend path has a fallback preserving current desktop behavior.
+
 ## CLI/tooling changes summary
 - **Keep:** all existing commands and common usage patterns.
 - **Add:** optional non-interactive auth flags/env vars, optional credential backend selector.
