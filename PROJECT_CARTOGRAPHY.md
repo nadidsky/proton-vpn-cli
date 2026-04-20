@@ -2,6 +2,7 @@
 
 ## Purpose
 `proton-vpn-cli` is the official Linux command-line interface for Proton VPN.
+For the ongoing headless/web evolution discussion, see `HEADLESS_MIGRATION_PLAN.md`.
 
 ## Top-level map
 - `proton/vpn/cli/` — application source code
@@ -49,3 +50,6 @@
 - CLI cannot run simultaneously with Proton VPN GUI app
 - Headless setups are currently unsupported
 - Split tunneling is not yet available
+
+## Planning artifacts
+- `HEADLESS_MIGRATION_PLAN.md` — phased headless migration plan with backward-compatibility, security/TDS review gates, web/API assurance sections, REST compatibility policy, local API hardening guidance, and optional MCP endpoint guardrails.

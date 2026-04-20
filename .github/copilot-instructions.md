@@ -9,6 +9,7 @@ Start with:
 - `proton/vpn/cli/__init__.py` for CLI entrypoint/command registration
 - `proton/vpn/cli/core/controller.py` for orchestration logic
 - `tests/unit/` for expected behavior
+- `HEADLESS_MIGRATION_PLAN.md` for headless/web migration scope and review gates
 
 ## Tech and structure
 - Python CLI using Click + async helpers

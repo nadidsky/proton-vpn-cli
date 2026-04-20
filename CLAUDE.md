@@ -12,6 +12,7 @@
 - Unit tests: `tests/unit/`
 - Packaging and dependency metadata: `setup.py`
 - Test/lint config: `setup.cfg`
+- Headless/web migration planning artifact: `HEADLESS_MIGRATION_PLAN.md`
 
 ## Developer workflow
 1. Initialize submodules:
