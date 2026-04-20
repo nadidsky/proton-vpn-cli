@@ -125,6 +125,9 @@ Current anchor:
 
 Migration example:
 ```python
+from dbus_fast.aio import MessageBus
+from dbus_fast import BusType
+
 async def _vpn_gui_running() -> bool:
     try:
         bus = await MessageBus(bus_type=BusType.SESSION).connect()
@@ -148,6 +151,11 @@ Current anchor:
 
 Migration example:
 ```python
+import getpass
+import os
+import sys
+
+@click.argument("username")
 @click.option("--password-stdin", is_flag=True)
 @click.option("--password-env", type=str)
 @click.option("--otp-env", type=str)
@@ -155,6 +163,18 @@ async def signin(ctx, username, password_stdin, password_env, otp_env):
     get_password = select_password_provider(password_stdin, password_env)
     get_2fa = select_otp_provider(otp_env)  # falls back to interactive prompt
     await controller.login(username, get_password, get_2fa)
+
+def select_password_provider(password_stdin, password_env):
+    if password_stdin:
+        return lambda: sys.stdin.readline().rstrip("\n")
+    if password_env:
+        return lambda: os.environ[password_env]
+    return getpass.getpass
+
+def select_otp_provider(otp_env):
+    if otp_env:
+        return lambda: os.environ[otp_env]
+    return lambda: getpass.getpass("2FA Token: ")
 ```
 
 Compatibility effect:
